@@ -1,0 +1,15 @@
+{
+  "name": "image-search-app",
+  "version": "1.0.0",
+  "main": "app.js",
+  "type": "module",
+  "dependencies": {
+    "@leeoniya/ufuzzy": "^1.0.18",
+    "tesseract.js": "^5.0.0"
+  },
+  "scripts": {
+    "start": "bun app.js",
+    "scan": "bun app.js scan",
+    "search": "bun app.js search"
+  }
+}

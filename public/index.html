@@ -1,0 +1,236 @@
+public/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Search App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        margin-bottom: 20px;
+      }
+      .search-box {
+        display: flex;
+        margin-bottom: 20px;
+      }
+      .search-box input {
+        flex: 1;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px 0 0 4px;
+      }
+      .search-box button {
+        padding: 10px 15px;
+        font-size: 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+      }
+      .folder-scan {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+      }
+      .folder-scan input {
+        width: 70%;
+        padding: 8px;
+        margin-right: 10px;
+      }
+      .image-results {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+      }
+      .image-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .image-card img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+      }
+      .image-card .info {
+        padding: 10px;
+      }
+      .image-card .filename {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .image-card .path {
+        font-size: 12px;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .document-tag {
+        display: inline-block;
+        background-color: #e91e63;
+        color: white;
+        font-size: 11px;
+        padding: 2px 5px;
+        border-radius: 3px;
+        margin-left: 5px;
+      }
+      .status {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8f8f8;
+        border-radius: 4px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Image Search App</h1>
+      <p>Find your documents and photos quickly using text search.</p>
+    </header>
+
+    <div class="folder-scan">
+      <h2>Scan Folder</h2>
+      <div>
+        <input type="text" id="folder-path" placeholder="Enter folder path (e.g., /Users/you/Pictures)" />
+        <button id="scan-btn">Scan Images</button>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search for documents (e.g., aadhar, passport, selfie)" />
+      <button id="search-btn">Search</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="results" class="image-results"></div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const searchInput = document.getElementById("search-input");
+        const searchBtn = document.getElementById("search-btn");
+        const folderPath = document.getElementById("folder-path");
+        const scanBtn = document.getElementById("scan-btn");
+        const resultsContainer = document.getElementById("results");
+        const statusEl = document.getElementById("status");
+
+        // Search for images
+        searchBtn.addEventListener("click", async () => {
+          const query = searchInput.value.trim();
+          if (!query) return;
+
+          showStatus("Searching...");
+
+          try {
+            const response = await fetch("/api/search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query }),
+            });
+
+            const results = await response.json();
+            displayResults(results);
+            showStatus(`Found ${results.length} results for "${query}"`);
+          } catch (error) {
+            showStatus("Error: " + error.message, true);
+          }
+        });
+
+        // Scan folder for images
+        scanBtn.addEventListener("click", async () => {
+          const folder = folderPath.value.trim();
+          if (!folder) return;
+
+          showStatus(`Scanning folder: ${folder}...`);
+
+          try {
+            const response = await fetch("/api/scan", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ folder }),
+            });
+
+            const results = await response.json();
+            showStatus(`Processed ${results.length} images from ${folder}`);
+          } catch (error) {
+            showStatus("Error: " + error.message, true);
+          }
+        });
+
+        // Display search results
+        function displayResults(images) {
+          resultsContainer.innerHTML = "";
+
+          if (images.length === 0) {
+            resultsContainer.innerHTML = "<p>No images found.</p>";
+            return;
+          }
+
+          images.forEach((image) => {
+            const card = document.createElement("div");
+            card.className = "image-card";
+
+            const img = document.createElement("img");
+            img.src = `/api/image?id=${image.id}`;
+            img.alt = image.filename;
+
+            const info = document.createElement("div");
+            info.className = "info";
+
+            const filename = document.createElement("div");
+            filename.className = "filename";
+            filename.textContent = image.filename;
+
+            if (image.is_document) {
+              const tag = document.createElement("span");
+              tag.className = "document-tag";
+              tag.textContent = "Document";
+              filename.appendChild(tag);
+            }
+
+            const path = document.createElement("div");
+            path.className = "path";
+            path.textContent = image.path;
+
+            info.appendChild(filename);
+            info.appendChild(path);
+
+            card.appendChild(img);
+            card.appendChild(info);
+
+            resultsContainer.appendChild(card);
+          });
+        }
+
+        // Show status message
+        function showStatus(message, isError = false) {
+          statusEl.textContent = message;
+          statusEl.style.display = "block";
+          statusEl.style.backgroundColor = isError ? "#ffebee" : "#f8f8f8";
+          statusEl.style.color = isError ? "#c62828" : "#333";
+        }
+
+        // Handle Enter key press
+        searchInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") searchBtn.click();
+        });
+
+        folderPath.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") scanBtn.click();
+        });
+      });
+    </script>
+  </body>
+</html>
